@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../Dependency_Parser/.idea/Dependency_Parser.iml" filepath="$PROJECT_DIR$/../Dependency_Parser/.idea/Dependency_Parser.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/dependency_parsing_tf.iml" filepath="$PROJECT_DIR$/.idea/dependency_parsing_tf.iml" />
+    </modules>
+  </component>
+</project>

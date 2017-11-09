@@ -1,0 +1,25 @@
+1	The	_	DET	DT	_	3	det	_	_
+2	interest-only	_	ADJ	JJ	_	3	amod	_	_
+3	securities	_	NOUN	NNS	_	6	nsubjpass	_	_
+4	will	_	AUX	MD	_	6	aux	_	_
+5	be	_	AUX	VB	_	6	auxpass	_	_
+6	sold	_	VERB	VBN	_	0	root	_	_
+7	separately	_	ADV	RB	_	6	advmod	_	_
+8	by	_	ADP	IN	_	10	case	_	_
+9	BT	_	PROPN	NNP	_	10	compound	_	_
+10	Securities	_	PROPN	NNPS	_	6	nmod	_	_
+11	.	_	PUNCT	.	_	6	punct	_	_
+
+1	The	_	DET	DT	_	3	det	_	_
+2	interest-only	_	ADJ	JJ	_	3	amod	_	_
+3	securities	_	NOUN	NNS	_	5	nsubjpass	_	_
+4	were	_	AUX	VBD	_	5	auxpass	_	_
+5	priced	_	VERB	VBN	_	0	root	_	_
+6	at	_	ADP	IN	_	8	case	_	_
+7	35	_	NUM	CD	_	8	compound	_	_
+8	1/2	_	NUM	CD	_	5	nmod	_	_
+9	to	_	PART	TO	_	10	mark	_	_
+10	yield	_	VERB	VB	_	5	xcomp	_	_
+11	10.72	_	NUM	CD	_	12	nummod	_	_
+12	%	_	SYM	NN	_	10	dobj	_	_
+13	.	_	PUNCT	.	_	5	punct	_	_
