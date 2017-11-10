@@ -70,7 +70,7 @@ class ParserModel(Model):
                                                                    0.01, trainable=True)
             self.dep_embedding_matrix = random_uniform_initializer(self.dep_embeddings.shape, "dep_embedding_matrix",
                                                                    0.01, trainable=True)
-
+            #[shape[51][50],shape[?][18]] ==> [?,18,50] # embedding_lookup(params, ids)其实就是按照ids顺序返回params中的第ids行。比如说，ids=[1,3,2],就是返回params中第1,3,2行。返回结果为由params的1,3,2行组成的tensor.
             word_context_embeddings = tf.nn.embedding_lookup(self.word_embedding_matrix, self.word_input_placeholder)
             pos_context_embeddings = tf.nn.embedding_lookup(self.pos_embedding_matrix, self.pos_input_placeholder)
             dep_context_embeddings = tf.nn.embedding_lookup(self.dep_embedding_matrix, self.dep_input_placeholder)
@@ -379,7 +379,7 @@ def highlight_string(temp):
 def main(flag, load_existing_dump=False):
     highlight_string("INITIALIZING")
     print "loading data.."
-
+    # 设置数据集（句子依存==》【单词，词性，依赖】=》目标【转移状态矩阵】） 设置神经网络的参数
     dataset = load_datasets(load_existing_dump)
     config = dataset.model_config
 
@@ -394,7 +394,7 @@ def main(flag, load_existing_dump=False):
     print len(dataset.pos2idx), len(dataset.pos_embedding_matrix)
     print len(dataset.dep2idx), len(dataset.dep_embedding_matrix)
 
-    if not os.path.exists(os.path.join(DataConfig.data_dir_path, DataConfig.model_dir)):
+    if not os.path.exists(os.path.join(DataConfig.data_dir_path, DataConfig.model_dir)): # data/params_日期
         os.makedirs(os.path.join(DataConfig.data_dir_path, DataConfig.model_dir))
 
     with tf.Graph().as_default(), tf.Session() as sess:

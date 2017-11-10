@@ -45,7 +45,7 @@ class DataConfig:  # data, embedding, model path etc.
     pos_emb_file = "pos_emb.pkl"  # 2d array
     dep_emb_file = "dep_emb.pkl"  # 2d array
 
-
+# 神经网络配置
 class ModelConfig(object):  # Takes care of shape, dimensions used for tf model
     # Input
     word_features_types = None
@@ -167,40 +167,40 @@ class Sentence(object):
             token.left_children.sort()
             token.right_children.sort()
 
-
+    # 跟新父元素的左右孩子数组元素
     def update_child_dependencies(self, curr_transition):
-        if curr_transition == 0:
-            head = self.stack[-1]
-            dependent = self.stack[-2]
+        if curr_transition == 0: #left arc
+            head = self.stack[-1]  # 获取父元素
+            dependent = self.stack[-2] # 获取子元素
         elif curr_transition == 1:
             head = self.stack[-2]
             dependent = self.stack[-1]
 
-        if head.token_id > dependent.token_id:
-            head.left_children.append(dependent.token_id)
+        if head.token_id > dependent.token_id: #left arc 子元素在父元素的左变
+            head.left_children.append(dependent.token_id) # 把左边的子元素的ID添加到父元素的左孩子数组中
             head.left_children.sort()
         else:
             head.right_children.append(dependent.token_id)
             head.right_children.sort()
             # dependent.head_id = head.token_id
 
-
+    # token ： sentence.stack[- 1]
     def get_child_by_index_and_depth(self, token, index, direction, depth):  # Get child token
         if depth == 0:
             return token
-
+        # 开始时，跟节点没有 左右孩子
         if direction == "left":
-            if len(token.left_children) > index:
+            if len(token.left_children) > index: # 有左孩子 深度遍历获取depth = 1 左孩子  depth = 2 左孩子的左孩子
                 return self.get_child_by_index_and_depth(
                     self.tokens[token.left_children[index]], index, direction, depth - 1)
             return NULL_TOKEN
-        else:
+        else: # 有左孩子 深度遍历获取 depth = 1 右孩子的右孩子 depth = 2 右孩子的右孩子
             if len(token.right_children) > index:
                 return self.get_child_by_index_and_depth(
                     self.tokens[token.right_children[::-1][index]], index, direction, depth - 1)
             return NULL_TOKEN
 
-
+    # len(self.stack) = 1 labels = [0,0,1]  len(self.stack) = 2 labels = [0,1,1] len(self.stack) >= 3 labels = [1,1,1]
     def get_legal_labels(self):
         labels = ([1] if len(self.stack) > 2 else [0])
         labels += ([1] if len(self.stack) >= 2 else [0])
@@ -211,28 +211,28 @@ class Sentence(object):
     def get_transition_from_current_state(self):  # logic to get next transition
         if len(self.stack) < 2:
             return 2  # shift
-
-        stack_token_0 = self.stack[-1]
-        stack_token_1 = self.stack[-2]
+        # 当len(self.stack) > =2 获取最后两个元素
+        stack_token_0 = self.stack[-1] # 最后一个元素
+        stack_token_1 = self.stack[-2] # 倒数第二个元素
         if stack_token_1.token_id >= 0 and stack_token_1.head_id == stack_token_0.token_id:  # left arc
-            return 0
+            return 0 #倒数第二元素不是root节点 & 并且倒数第二个节点的父节点时最后一个节点，即：stack_token_1 <--- stack_token_0
         elif stack_token_1.token_id >= -1 and stack_token_0.head_id == stack_token_1.token_id \
                 and stack_token_0.token_id not in map(lambda x: x.head_id, self.buff):
-            return 1  # right arc
-        else:
+            return 1  # right arc # stack_token_1 ---> stack_token_0 & 最后一个元素不存在buf的缓存中
+        else: # stack_token_1 和 stack_token_0 不存在任何关系
             return 2 if len(self.buff) != 0 else None
 
-
+    # 更新句子中的转移关系 或者预测出的依赖关系
     def update_state_by_transition(self, transition, gold=True):  # updates stack, buffer and dependencies
         if transition is not None:
             if transition == 2:  # shift
                 self.stack.append(self.buff[0])
                 self.buff = self.buff[1:] if len(self.buff) > 1 else []
-            elif transition == 0:  # left arc
-                self.dependencies.append(
+            elif transition == 0:  # left arc   self.stack[-2]  <----- self.stack[-1]
+                self.dependencies.append( # 训练时gold = true 执行elf.dependencies.append  预测时gold = ：self.predicted_dependencies.append
                     (self.stack[-1], self.stack[-2])) if gold else self.predicted_dependencies.append(
-                    (self.stack[-1], self.stack[-2]))
-                self.stack = self.stack[:-2] + self.stack[-1:]
+                    (self.stack[-1], self.stack[-2])) # （父元素，子元素）
+                self.stack = self.stack[:-2] + self.stack[-1:] # 删除stack栈中倒数第二个元素
             elif transition == 1:  # right arc
                 self.dependencies.append(
                     (self.stack[-2], self.stack[-1])) if gold else self.predicted_dependencies.append(
@@ -283,7 +283,7 @@ class Dataset(object):
         self.valid_inputs, self.valid_targets = None, None
         self.test_inputs, self.test_targets = None, None
 
-
+    # 当字典不存在时候，读取训练集并生成单词、词性和依赖字典
     def build_vocab(self):
 
         all_words = set()
@@ -295,17 +295,17 @@ class Dataset(object):
             all_pos.update(set(map(lambda x: x.pos, sentence.tokens)))
             all_dep.update(set(map(lambda x: x.dep, sentence.tokens)))
 
-        all_words.add(ROOT_TOKEN.word)
-        all_words.add(NULL_TOKEN.word)
-        all_words.add(UNK_TOKEN.word)
+        all_words.add(ROOT_TOKEN.word) # "<root>"
+        all_words.add(NULL_TOKEN.word) # "<null>"
+        all_words.add(UNK_TOKEN.word) # "<unk>"
 
-        all_pos.add(ROOT_TOKEN.pos)
-        all_pos.add(NULL_TOKEN.pos)
-        all_pos.add(UNK_TOKEN.pos)
+        all_pos.add(ROOT_TOKEN.pos) # "<root>"
+        all_pos.add(NULL_TOKEN.pos) # "<null>"
+        all_pos.add(UNK_TOKEN.pos) # "<unk>"
 
-        all_dep.add(ROOT_TOKEN.dep)
-        all_dep.add(NULL_TOKEN.dep)
-        all_dep.add(UNK_TOKEN.dep)
+        all_dep.add(ROOT_TOKEN.dep) # "<root>"
+        all_dep.add(NULL_TOKEN.dep) # "<null>"
+        all_dep.add(UNK_TOKEN.dep) # "<unk>"
 
         word_vocab = list(all_words)
         pos_vocab = list(all_pos)
@@ -329,12 +329,12 @@ class Dataset(object):
         self.dep2idx = dep2idx
         self.idx2dep = idx2dep
 
-
+    # 把训练集单词 词性 和 依赖 转行成对应的词向量
     def build_embedding_matrix(self):
 
         # load word vectors
         word_vectors = {}
-        embedding_lines = open(os.path.join(DataConfig.data_dir_path, DataConfig.embedding_file), "r").readlines()
+        embedding_lines = open(os.path.join(DataConfig.data_dir_path, DataConfig.embedding_file), "r").readlines() # ./data/en-cw.txt
         for line in embedding_lines:
             sp = line.strip().split()
             word_vectors[sp[0]] = [float(x) for x in sp[1:]]
@@ -343,7 +343,7 @@ class Dataset(object):
         self.model_config.word_vocab_size = len(self.word2idx)
         word_embedding_matrix = np.asarray(
             np.random.normal(0, 0.9, size=(self.model_config.word_vocab_size, self.model_config.embedding_dim)),
-            dtype=np.float32)
+            dtype=np.float32) # [51,50] 赋根据正太分布的随机值
         for (word, idx) in self.word2idx.items():
             if word in word_vectors:
                 word_embedding_matrix[idx] = word_vectors[word]
@@ -351,6 +351,8 @@ class Dataset(object):
                 word_embedding_matrix[idx] = word_vectors[word.lower()]
         self.word_embedding_matrix = word_embedding_matrix
 
+        # 词性和依赖时根据正太分布的随机值生成50位的数据
+        # -------------------------------------------------------------------------------------------------------- #
         # pos embedding
         self.model_config.pos_vocab_size = len(self.pos2idx)
         pos_embedding_matrix = np.asarray(
@@ -364,6 +366,7 @@ class Dataset(object):
             np.random.normal(0, 0.9, size=(self.model_config.dep_vocab_size, self.model_config.embedding_dim)),
             dtype=np.float32)
         self.dep_embedding_matrix = dep_embedding_matrix
+        # -------------------------------------------------------------------------------------------------------- #
 
 
     def convert_data_to_ids(self):
@@ -389,37 +392,43 @@ class FeatureExtractor(object):
     def __init__(self, model_config):
         self.model_config = model_config
 
-
+    # len(tokens) = 6 tokens【前三个为【stack元素后三个元素】，后三个为【buff的前三个元素】】提取stack栈里面的最后面的三个元素，如果不足三个，前面用null节点填补，
     def extract_from_stack_and_buffer(self, sentence, num_words=3):
         tokens = []
-
-        tokens.extend([NULL_TOKEN for _ in range(num_words - len(sentence.stack))])
+        # --------------------- 加入三个空节点 ------------------------------------------ #
+        # len(sentence.stack)) = 1 时 【【null】,[null]】
+        tokens.extend([NULL_TOKEN for _ in range(num_words - len(sentence.stack))]) # sentence.stack = ROOT节点
+        # len(sentence.stack)) <= 3 追加所有sentence.stack元素  否则 追加sentence.stack 后三个元素
         tokens.extend(sentence.stack[-num_words:])
-
+        # --------------------- 加入三个空节点 ------------------------------------------ #
+        # 在三个空节点后在后面  加入 句子的前三个单词节点
+        # [null.null,root,word1,word2,word3]
         tokens.extend(sentence.buff[:num_words])
-        tokens.extend([NULL_TOKEN for _ in range(num_words - len(sentence.buff))])
+        tokens.extend([NULL_TOKEN for _ in range(num_words - len(sentence.buff))]) # len(sentence.buff) >= num_words 时 不执行该句
         return tokens  # 6 features
 
-
+    # 获取【第一个左右孩子】 【第二个左孩子  第二个右孩子】 【第一个左孩子的左孩子，第一个右孩子的右孩子】
     def extract_children_from_stack(self, sentence, num_stack_words=2):
         children_tokens = []
-
-        for i in range(num_stack_words):
-            if len(sentence.stack) > i:
-                lc0 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 0, "left", 1)
+        # 遍历后两个元素 ，先遍历最后一个元素，再遍历倒数第二个元素
+        for i in range(num_stack_words): # num_stack_words = 2
+            if len(sentence.stack) > i: # len(sentence.stack) 开始时 = 1
+                lc0 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 0, "left", 1) # sentence.stack[-i - 1] 获取stack[] 最前一个元素 栈后进先出
                 rc0 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 0, "right", 1)
-
+                # lc0 = NULL 不执行 lc1
                 lc1 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 1, "left",
                                                             1) if lc0 != NULL_TOKEN else NULL_TOKEN
+                # rc0 = NULL 不执行rc1
                 rc1 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 1, "right",
                                                             1) if rc0 != NULL_TOKEN else NULL_TOKEN
-
+                # lc0 = NULL 不执行 llc0
                 llc0 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 0, "left",
                                                              2) if lc0 != NULL_TOKEN else NULL_TOKEN
+                # rc0 = NULL 不执行 rrc0
                 rrc0 = sentence.get_child_by_index_and_depth(sentence.stack[-i - 1], 0, "right",
                                                              2) if rc0 != NULL_TOKEN else NULL_TOKEN
 
-                children_tokens.extend([lc0, rc0, lc1, rc1, llc0, rrc0])
+                children_tokens.extend([lc0, rc0, lc1, rc1, llc0, rrc0])#[【第一个左右孩子】 【第二个左孩子】  【第二个右孩子】 【第一个左孩子的左孩子】【第一个右孩子的右孩子】 ]
             else:
                 [children_tokens.append(NULL_TOKEN) for _ in range(6)]
 
@@ -427,7 +436,9 @@ class FeatureExtractor(object):
 
 
     def extract_for_current_state(self, sentence, word2idx, pos2idx, dep2idx):
+        # 0 : [null.null,root,word1,word2,word3]
         direct_tokens = self.extract_from_stack_and_buffer(sentence, num_words=3)
+        # [[null] * 12]
         children_tokens = self.extract_children_from_stack(sentence, num_stack_words=2)
 
         word_features = []
@@ -439,13 +450,16 @@ class FeatureExtractor(object):
         word_features.extend(map(lambda x: x.word, children_tokens))
 
         # pos features -> 18
+        # 0: [null.null,root,word1,word2,word3] 1: [null,root,word1,word2,word3,word4]
         pos_features.extend(map(lambda x: x.pos, direct_tokens))
+        # [null.null,null,word1,word2,word3,[null] * 12]
         pos_features.extend(map(lambda x: x.pos, children_tokens))
 
         # dep features -> 12 (only children)
+        # [[null] * 12]
         dep_features.extend(map(lambda x: x.dep, children_tokens))
-
-        word_input_ids = [word2idx[word] if word in word2idx else word2idx[UNK_TOKEN.word] for word in word_features]
+        # 把单词、词性和依赖通过字典转换成对应的索引index
+        word_input_ids = [word2idx[word] if word in word2idx else word2idx[UNK_TOKEN.word] for word in word_features] # UNK_TOKEN.word = <unk>
         pos_input_ids = [pos2idx[pos] if pos in pos2idx else pos2idx[UNK_TOKEN.pos] for pos in pos_features]
         dep_input_ids = [dep2idx[dep] if dep in dep2idx else dep2idx[UNK_TOKEN.dep] for dep in dep_features]
 
@@ -461,9 +475,14 @@ class FeatureExtractor(object):
             num_words = len(sentence.tokens)
 
             for _ in range(num_words * 2):
+                if _ == 6:
+                    print _
                 word_input, pos_input, dep_input = self.extract_for_current_state(sentence, word2idx, pos2idx, dep2idx)
-                legal_labels = sentence.get_legal_labels()
-                curr_transition = sentence.get_transition_from_current_state()
+                legal_labels = sentence.get_legal_labels() # len(sentence.stack) = 1 labels = [0,0,1]  len(sentence.stack) = 2 labels = [0,1,1] len(sentence.stack) >= 3 labels = [1,1,1]
+                # transition == 2 # shift
+                # transition == 0:  # left arc
+                # transition == 1:  # right arc
+                curr_transition = sentence.get_transition_from_current_state() # 2
                 if curr_transition is None:
                     break
                 assert legal_labels[curr_transition] == 1
@@ -471,21 +490,22 @@ class FeatureExtractor(object):
                 # Update left/right children
                 if curr_transition != 2:
                     sentence.update_child_dependencies(curr_transition)
-
-                sentence.update_state_by_transition(curr_transition)
-                lables.append(curr_transition)
+                # 通过sentence 执行 shift、left arc和right arc三个状态其一
+                # stack[]   buff[]
+                sentence.update_state_by_transition(curr_transition) # # 更新句子中的转移关系 或者预测出的依赖关系
+                lables.append(curr_transition)  # 存储上一个执行的状态
                 word_inputs.append(word_input)
                 pos_inputs.append(pos_input)
                 dep_inputs.append(dep_input)
 
             else:
-                sentence.reset_to_initial_state()
+                sentence.reset_to_initial_state() # 恢复stack[root] 和 buff[tokens] 的数据
 
             # reset stack and buffer to default state
             sentence.reset_to_initial_state()
-
+        # lables 句子转移动作集 self.model_config.num_classes = 0 output len(labels) = 110 tagets[110][3]
         targets = np.zeros((len(lables), self.model_config.num_classes), dtype=np.int32)
-        targets[np.arange(len(targets)), lables] = 1
+        targets[np.arange(len(targets)), lables] = 1 # lables 一维 转换成三维 如： 0 -->【1,0,0】 1 -->【0,1,0】 2 -->【0,0,1】
 
         return [word_inputs, pos_inputs, dep_inputs], targets
 
@@ -560,32 +580,35 @@ def load_datasets(load_existing_dump=False):
 
         dataset.model_config.load_existing_vocab = True
         print "loaded existing Vocab!"
+        # 读取本地词向量（单词\词性\依赖）
         dataset.word_embedding_matrix = get_pickle(os.path.join(DataConfig.dump_dir, DataConfig.word_emb_file))
         dataset.pos_embedding_matrix = get_pickle(os.path.join(DataConfig.dump_dir, DataConfig.pos_emb_file))
         dataset.dep_embedding_matrix = get_pickle(os.path.join(DataConfig.dump_dir, DataConfig.dep_emb_file))
         print "loaded existing embedding matrix!"
 
     else: # 当数据集不存在时
-        dataset.build_vocab()
-        dump_pickle(dataset.word2idx, os.path.join(DataConfig.dump_dir, DataConfig.word_vocab_file))
-        dump_pickle(dataset.pos2idx, os.path.join(DataConfig.dump_dir, DataConfig.pos_vocab_file))
-        dump_pickle(dataset.dep2idx, os.path.join(DataConfig.dump_dir, DataConfig.dep_vocab_file))
+        dataset.build_vocab() # 读取训练集中的单词、词性和依赖
+        dump_pickle(dataset.word2idx, os.path.join(DataConfig.dump_dir, DataConfig.word_vocab_file)) # './data/dump/word2idx.pkl'
+        dump_pickle(dataset.pos2idx, os.path.join(DataConfig.dump_dir, DataConfig.pos_vocab_file)) # pos2idx.pkl
+        dump_pickle(dataset.dep2idx, os.path.join(DataConfig.dump_dir, DataConfig.dep_vocab_file)) # dep2idx.pkl
         dataset.model_config.load_existing_vocab = True
         print "Vocab Build Done!"
+        # 把训练集单词 词性 和 依赖 转行成对应的词向量
         dataset.build_embedding_matrix()
         print "embedding matrix Build Done"
-        dump_pickle(dataset.word_embedding_matrix, os.path.join(DataConfig.dump_dir, DataConfig.word_emb_file))
-        dump_pickle(dataset.pos_embedding_matrix, os.path.join(DataConfig.dump_dir, DataConfig.pos_emb_file))
-        dump_pickle(dataset.dep_embedding_matrix, os.path.join(DataConfig.dump_dir, DataConfig.dep_emb_file))
+        # 存储词向量
+        dump_pickle(dataset.word_embedding_matrix, os.path.join(DataConfig.dump_dir, DataConfig.word_emb_file)) # ./data/dump/word_emb.pkl
+        dump_pickle(dataset.pos_embedding_matrix, os.path.join(DataConfig.dump_dir, DataConfig.pos_emb_file)) # ./data/dump/pos_emb.pkl
+        dump_pickle(dataset.dep_embedding_matrix, os.path.join(DataConfig.dump_dir, DataConfig.dep_emb_file)) # # ./data/dump/dep_emb.pkl
 
     print "converting data into ids.."
-    dataset.convert_data_to_ids()
+    dataset.convert_data_to_ids() # inputs(train_inputs) [词索引，词性索引，依赖索引]  output(train_targets) [转移状态]
     print "Done!"
-    dataset.model_config.word_features_types = len(dataset.train_inputs[0][0])
-    dataset.model_config.pos_features_types = len(dataset.train_inputs[1][0])
-    dataset.model_config.dep_features_types = len(dataset.train_inputs[2][0])
+    dataset.model_config.word_features_types = len(dataset.train_inputs[0][0]) # 单词的个数
+    dataset.model_config.pos_features_types = len(dataset.train_inputs[1][0]) # 词性的个数
+    dataset.model_config.dep_features_types = len(dataset.train_inputs[2][0]) # 依赖的个数
     dataset.model_config.num_features_types = dataset.model_config.word_features_types + \
-                                              dataset.model_config.pos_features_types + dataset.model_config.dep_features_types
-    dataset.model_config.num_classes = len(dataset.train_targets[0])
+                                              dataset.model_config.pos_features_types + dataset.model_config.dep_features_types # 单词的个数 + 词性的个数 + 依赖的个数
+    dataset.model_config.num_classes = len(dataset.train_targets[0]) # 转移状态 的维数
 
     return dataset
